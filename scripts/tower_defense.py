@@ -148,32 +148,31 @@ class TowerDefense:
         self.gem_factory = GemFactory(self)
         self.gem_factory.load('data/gems.json')
         self.gem_bag = GemBag(app.save_data["bags"])
-        self.gem_stash = None
         self.gem_stash = GemStash(self, self.screen, (1135, 400))
         self.hoverables.append(self.gem_stash)
         
     def _init_resolution(self):
         self.screen.blit(pygame.transform.scale(self.display, (1280, 720)), (0, 0))
 
-    def run_pathfinding(self, clicked):
+    def run_pathfinding(self):
         if self.level_ended:
             return
-        if clicked == 'play':
+ 
+        if self.debug_mode:
+            self.pathfinding.update(True)
+        else:
+            self.pathfinding.update()
+        if not self.pf_started and self.paused:
+            self.paused = False
+            for row in self.pf_grid:
+                for tile in row:
+                    tile.update_neighbors(self.pf_grid)
             if self.debug_mode:
-                self.pathfinding.update(True)
+                pf_algorithm(lambda: draw_pathfinding(self.display, self.pf_grid, ROWS, WIDTH),
+                                self.pf_grid, self.pf_start, self.pf_end, self, True)
             else:
-                self.pathfinding.update()
-            if not self.pf_started and self.paused:
-                self.paused = False
-                for row in self.pf_grid:
-                    for tile in row:
-                        tile.update_neighbors(self.pf_grid)
-                if self.debug_mode:
-                    pf_algorithm(lambda: draw_pathfinding(self.display, self.pf_grid, ROWS, WIDTH),
-                                    self.pf_grid, self.pf_start, self.pf_end, self, True)
-                else:
-                    pf_algorithm(lambda: draw_pathfinding(self.display, self.pf_grid, ROWS, WIDTH),
-                                    self.pf_grid, self.pf_start, self.pf_end, self)
+                pf_algorithm(lambda: draw_pathfinding(self.display, self.pf_grid, ROWS, WIDTH),
+                                self.pf_grid, self.pf_start, self.pf_end, self)
 
     def run_level(self):
         self.level.update()
@@ -236,11 +235,6 @@ class TowerDefense:
             self.towers.add(tower_n)
             self.current_steel -= self.tower_cost
             play_audio('build', self.sfx_assets)
-        if self.current_build_type == 'gem' and self.current_steel >= self.gem_cost:
-            gem_type, tier, star = self.gem_bag.draw()
-            gem_token = GemToken(gem_type, tier, star, self)
-            self.gem_stash.add(gem_token)
-            self.current_steel -= self.gem_cost
 
         self.current_build_img = None
         self.current_build_type = None
@@ -336,6 +330,11 @@ class TowerDefense:
                             self.build()
                     else:
                         self.game_ui.check_click()
+                    
+                    if not self.build_mode:    
+                        token = self.gem_stash.get_token_at(pygame.mouse.get_pos())
+                        if token:
+                            self.dragging_token = token
 
                     if self.debug_mode:
                         row = self.tile_pos[0]
@@ -361,6 +360,23 @@ class TowerDefense:
                             self.pf_start = None
                         if tile == self.pf_end:
                             self.pf_end = None
+                            
+            if event.type == pygame.MOUSEBUTTONUP:
+                if self.dragging_token is not None:
+                    for tower in self.towers:
+                        if tower.rect.collidepoint(pygame.mouse.get_pos()) and not tower.has_gem:
+                            pos = (tower.tile_pos[0] * self.tilemap.tile_size * self.render_scale, tower.tile_pos[1] * self.tilemap.tile_size * self.render_scale)
+                            gem = self.gem_factory.build_gem(
+                                self.dragging_token.gem_type,
+                                self.dragging_token.tier,
+                                self.dragging_token.star,
+                                tower,
+                                self.display)
+                            tower.has_gem = True
+                            self.gems.add(gem)
+                            self.gem_stash.remove(self.dragging_token)
+                            self.dragging_token = None
+                self.dragging_token = None
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_b:
@@ -386,7 +402,6 @@ class TowerDefense:
         pygame.draw.rect(self.screen, (52, 47, 67), pygame.Rect(32, 712, 1056, 8))
 
         # draw gem_stash
-        self.game_ui.draw_gem_stash(self.screen)
         hovered = self.gem_stash.get_token_at(pygame.mouse.get_pos())
         self.gem_stash.draw(hovered_token=hovered)
 
@@ -408,6 +423,10 @@ class TowerDefense:
 
         # Here we display our mouse
         self.screen.blit(self.assets['mouse_pointer'], self.screen_mpos)
+        if self.dragging_token is not None:
+            self.screen.blit(self.dragging_token.icon, 
+                            (self.screen_mpos[0] - (self.tile_size / 2), 
+                            self.screen_mpos[1] - (self.tile_size / 2)))
         
         for _tower in self.towers:
             if self.build_mode:
