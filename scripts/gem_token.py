@@ -10,6 +10,7 @@ class GemToken:
         self.star = star
         self.icon = load_image(gem_type + '_gem.png')
         self.game = game
+        self.dragging = False
         # self.game.hoverables.append(self)
         # self.rect = pygame.Rect(self.pos[0], self.pos[1], self.tile_size, self.tile_size)
         

@@ -77,8 +77,8 @@ class UI:
             wave_button = Button(self, 32, BUTTON_HEIGHT, (0, int(BUTTON_HEIGHT * count)), ('w', + count), self.assets['wave_button'], self.assets['wave_button_hover'], w_data)
 
     def draw_gem_stash(self, surf):
-        stash_width = 165
-        surf.blit(pygame.transform.scale(self.assets['gem_stash'], (stash_width, stash_width)), (1100, 400))
+        stash_width = 100
+        surf.blit(pygame.transform.scale(self.assets['gem_stash'], (stash_width, stash_width)), (1135, 400))
 
     # BUG: Wave display desyncs with actual wave spawns. Issue likely in main.py
     def update_wave_display(self, ff=False):

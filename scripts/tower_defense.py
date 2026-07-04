@@ -33,12 +33,6 @@ class TowerDefense:
         
         self.app = app
         self.screen = app.screen
-        
-        self.gem_factory = GemFactory(self)
-        self.gem_factory.load('data/gems.json')
-        self.gem_bag = GemBag(app.save_data["bags"])
-        self.gem_stash = GemStash(origin_x=1100, origin_y=400)
-
         self.display = pygame.Surface((1280, 720))
         self.dt = 0
         
@@ -115,6 +109,7 @@ class TowerDefense:
         self.debug_mode = False
         self.fast_forward = False
         self.level_ended = False
+        self.dragging_token = None
 
         # Here is where we can initialize the scene
         self.towers = pygame.sprite.Group()
@@ -149,7 +144,14 @@ class TowerDefense:
         self.monster_spawn_pos = None
         self.data_filepath = "data"
         self.render_scale = 2.0
-
+        
+        self.gem_factory = GemFactory(self)
+        self.gem_factory.load('data/gems.json')
+        self.gem_bag = GemBag(app.save_data["bags"])
+        self.gem_stash = None
+        self.gem_stash = GemStash(self, self.screen, (1135, 400))
+        self.hoverables.append(self.gem_stash)
+        
     def _init_resolution(self):
         self.screen.blit(pygame.transform.scale(self.display, (1280, 720)), (0, 0))
 
@@ -239,13 +241,6 @@ class TowerDefense:
             gem_token = GemToken(gem_type, tier, star, self)
             self.gem_stash.add(gem_token)
             self.current_steel -= self.gem_cost
-            # for n_tower in self.towers:
-            #     if self.tile_pos == n_tower.tile_pos:
-            #         gem_type, tier, star = self.gem_bag.draw()
-            #         gem_n = self.gem_factory.build_gem(gem_type, tier, star, n_tower, self.display)
-            #         self.gems.add(gem_n)
-            #         n_tower.has_gem = True
-            #         self.current_steel -= self.gem_cost
 
         self.current_build_img = None
         self.current_build_type = None
@@ -270,6 +265,7 @@ class TowerDefense:
         
         self.create_level_buttons()
         self._init_resolution()
+        
         
         # Here is where we load all our data that is stored in files
         try:
@@ -391,7 +387,8 @@ class TowerDefense:
 
         # draw gem_stash
         self.game_ui.draw_gem_stash(self.screen)
-        self.gem_stash.draw(self.screen)
+        hovered = self.gem_stash.get_token_at(pygame.mouse.get_pos())
+        self.gem_stash.draw(hovered_token=hovered)
 
         for button in self.game_ui.buttons:
             button.draw_button(self.screen)
