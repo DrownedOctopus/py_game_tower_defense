@@ -27,4 +27,4 @@ class GemFactory:
         gem_stats = gem_config["stats"]
         gem_abilities = gem_config["abilities"]
         
-        return Gem(gem_type, gem_stats, gem_abilities, tower, surf, self.game)
+        return Gem(gem_type, tier, star, gem_stats, gem_abilities, tower, surf, self.game)

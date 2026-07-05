@@ -6,9 +6,11 @@ from scripts.projectile import Projectile
 
 class Gem (pygame.sprite.Sprite):
 
-    def __init__(self, gem_type, stats, abilities, tower, surf, game):
+    def __init__(self, gem_type, tier, star, stats, abilities, tower, surf, game):
         super().__init__()
         self.gem_type = gem_type
+        self.tier = tier
+        self.star = star
         self.stats = stats
         self.abilities = abilities
         self.pos = tower.pos

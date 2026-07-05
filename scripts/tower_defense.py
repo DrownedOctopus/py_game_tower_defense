@@ -108,6 +108,8 @@ class TowerDefense:
         self.debug_mode = False
         self.level_ended = False
         self.dragging_token = None
+        self.drag_source = None
+        self.drag_source_tower = None
         self.time_scale = 0.0
 
         # Here is where we can initialize the scene
@@ -313,6 +315,22 @@ class TowerDefense:
             self.gem_stash.add(gem_token)
             self.current_steel -= self.gem_cost
             
+    def _swap_gem(self, gem):
+        gem_type = gem.gem_type
+        tier = gem.tier
+        star = gem.star
+        gem_token = GemToken(gem_type, tier, star, self)
+        self.gem_stash.add(gem_token)
+        self.gems.remove(gem)
+        gem.tower.gem = None
+        gem.kill()
+        
+    def _get_clicked_tower(self, mouse_pos):
+        for tower in self.towers:
+            if tower.rect.collidepoint(mouse_pos):
+                return tower
+        return None
+            
     def _handle_events(self):
         # This is the event checker for each frame
         for event in pygame.event.get():
@@ -328,24 +346,26 @@ class TowerDefense:
                             self._build()
                     else:
                         self.game_ui.check_click()
-                    
-                    if not self.build_mode:    
+
+                        # check stash first
                         token = self.gem_stash.get_token_at(pygame.mouse.get_pos())
                         if token:
                             self.dragging_token = token
-
-                    if self.debug_mode:
-                        row = self.tile_pos[0]
-                        col = self.tile_pos[1]
-                        tile = self.pf_grid[row][col]
-                        if not self.pf_start and tile != self.pf_end:
-                            pf_start = tile
-                            pf_start.make_start()
-                        elif not self.pf_end and tile != self.pf_start:
-                            pf_end = tile
-                            pf_end.make_end()
-                        elif tile != self.pf_end and tile != self.pf_start:
-                            tile.make_barrier()
+                            self.drag_source = 'stash'
+                        else:
+                            # check towers
+                            clicked_tower = self._get_clicked_tower(pygame.mouse.get_pos())
+                            if clicked_tower and clicked_tower.has_gem:
+                                # convert gem to token for dragging
+                                gem = clicked_tower.gem
+                                self.dragging_token = GemToken(gem.gem_type, gem.tier, gem.star, self)
+                                self.drag_source = 'tower'
+                                self.drag_source_tower = clicked_tower
+                                # remove gem from tower immediately
+                                self.gems.remove(gem)
+                                gem.kill()
+                                clicked_tower.gem = None
+                                clicked_tower.has_gem = False
 
                 if event.button == 3:
                     self.right_clicking = True
@@ -361,20 +381,68 @@ class TowerDefense:
                             
             if event.type == pygame.MOUSEBUTTONUP:
                 if self.dragging_token is not None:
-                    for tower in self.towers:
-                        if tower.rect.collidepoint(pygame.mouse.get_pos()) and not tower.has_gem:
-                            pos = (tower.tile_pos[0] * self.tilemap.tile_size * self.render_scale, tower.tile_pos[1] * self.tilemap.tile_size * self.render_scale)
-                            gem = self.gem_factory.build_gem(
+                    dropped = False
+                    target_tower = self._get_clicked_tower(pygame.mouse.get_pos())
+                    
+                    if target_tower:
+                        if target_tower.has_gem:
+                            existing = target_tower.gem
+                            if self.drag_source == 'tower' and self.drag_source_tower:
+                                # tower to tower swap — put existing gem on source tower
+                                pos = (self.drag_source_tower.tile_pos[0] * self.tilemap.tile_size * self.render_scale,
+                                    self.drag_source_tower.tile_pos[1] * self.tilemap.tile_size * self.render_scale)
+                                restored_gem = self.gem_factory.build_gem(
+                                    existing.gem_type,
+                                    existing.tier,
+                                    existing.star,
+                                    self.drag_source_tower,
+                                    self.display)
+                                self.drag_source_tower.has_gem = True
+                                self.gems.add(restored_gem)
+                            else:
+                                # stash to tower swap — put existing gem back in stash
+                                swap_token = GemToken(existing.gem_type, existing.tier, existing.star, self)
+                                self.gem_stash.add(swap_token)
+                            
+                            self.gems.remove(existing)
+                            target_tower.gem = None
+                            existing.kill()                            
+                            target_tower.has_gem = False
+
+                        # place dragged gem on target tower
+                        pos = (target_tower.tile_pos[0] * self.tilemap.tile_size * self.render_scale,
+                            target_tower.tile_pos[1] * self.tilemap.tile_size * self.render_scale)
+                        new_gem = self.gem_factory.build_gem(
+                            self.dragging_token.gem_type,
+                            self.dragging_token.tier,
+                            self.dragging_token.star,
+                            target_tower,
+                            self.display)
+                        target_tower.has_gem = True
+                        self.gems.add(new_gem)
+                        
+                        if self.drag_source == 'stash':
+                            self.gem_stash.remove(self.dragging_token)
+                        dropped = True
+                    
+                    if not dropped:
+                        if self.drag_source == 'stash':
+                            pass
+                        elif self.drag_source == 'tower':
+                            pos = (self.drag_source_tower.tile_pos[0] * self.tilemap.tile_size * self.render_scale,
+                                self.drag_source_tower.tile_pos[1] * self.tilemap.tile_size * self.render_scale)
+                            restored_gem = self.gem_factory.build_gem(
                                 self.dragging_token.gem_type,
                                 self.dragging_token.tier,
                                 self.dragging_token.star,
-                                tower,
+                                self.drag_source_tower,
                                 self.display)
-                            tower.has_gem = True
-                            self.gems.add(gem)
-                            self.gem_stash.remove(self.dragging_token)
-                            self.dragging_token = None
-                self.dragging_token = None
+                            self.drag_source_tower.has_gem = True
+                            self.gems.add(restored_gem)
+
+                    self.dragging_token = None
+                    self.drag_source = None
+                    self.drag_source_tower = None
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_b:
