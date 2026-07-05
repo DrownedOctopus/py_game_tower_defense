@@ -26,11 +26,9 @@ class Projectile(pygame.sprite.Sprite):
         self.screen_surface.blit(self.img, self.position)
 
     def update(self):
-        if self.game.paused:
-            return
         tile_half = (self.game.tile_size // 2)
         direction = (self.target.screen_pos[0] + tile_half, self.target.screen_pos[1] + tile_half) - self.position
-        velocity = direction.normalize() * self.speed * 2 if self.game.fast_forward else direction.normalize() * self.speed
+        velocity = direction.normalize() * self.speed * self.game.dt
         new_position = Vector2(self.position[0] + velocity[0], self.position[1] + velocity[1])
         self.position = new_position
         self.rect.center = new_position        

@@ -45,9 +45,6 @@ class Monster (pygame.sprite.Sprite):
         self.target_pos = (float(self.pathway[self.pathway_index][0]), float(self.pathway[self.pathway_index][1]))
 
     def update(self):
-        if self.game.paused:
-            return
-
         if self.current_health <= 0:
             self.kill()
             self.game.current_steel += self.steel_value
@@ -67,26 +64,26 @@ class Monster (pygame.sprite.Sprite):
         if abs(self.pos[0] - self.target_pos[0]) <= threshold and abs(self.pos[1] - self.target_pos[1]) <= threshold:
             self.pos = self.target_pos
             self.pathway_index += 1
-            self.target_pos = self.pathway[self.pathway_index]
+            self.target_pos = (float(self.pathway[self.pathway_index][0]), float(self.pathway[self.pathway_index][1]))
             
-        speed_multi = 2 if self.game.fast_forward else 1        
+        dt = self.game.dt
         #1. Above us
         if self.target_pos[0] == self.pos[0] and self.target_pos[1] < self.pos[1]:
             self.target_rotation = 270
-            self.pos = (self.pos[0], self.pos[1] - (self.monster_move_speed * speed_multi))
+            self.pos = (self.pos[0], self.pos[1] - (self.monster_move_speed * dt))
         # 2. To our right
         elif self.target_pos[0] > self.pos[0] and self.target_pos[1] == self.pos[1]:
             self.target_rotation = 0
-            self.pos = (self.pos[0] + (self.monster_move_speed * speed_multi), self.pos[1])
+            self.pos = (self.pos[0] + (self.monster_move_speed * dt), self.pos[1])
         # 3. Below us
         elif self.target_pos[0] == self.pos[0] and self.target_pos[1] > self.pos[1]:
             self.target_rotation = 90
-            self.pos = (self.pos[0], self.pos[1] + (self.monster_move_speed * speed_multi))
+            self.pos = (self.pos[0], self.pos[1] + (self.monster_move_speed * dt))
         # 4. To our Left
         elif self.target_pos[0] < self.pos[0] and self.target_pos[1] == self.pos[1]:
             self.target_rotation = 180
-            self.pos = (self.pos[0] - (self.monster_move_speed * speed_multi), self.pos[1])
+            self.pos = (self.pos[0] - (self.monster_move_speed * dt), self.pos[1])
         # if none of these things our true, then we have gone off the grid
         else:
             raise ValueError("Target position is out of bounds")
-        self.screen_pos = self.pos[0] * self.pathfinding.game.tile_size, self.pos[1] * self.pathfinding.game.tile_size
+        self.screen_pos = self.pos[0] * self.game.tile_size, self.pos[1] * self.game.tile_size

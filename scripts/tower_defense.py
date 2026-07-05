@@ -98,7 +98,6 @@ class TowerDefense:
         self.clock = app.clock
         self.bg_color = (25, 25, 25)
         self.build_mode = False
-        self.paused = True
         self.pathfinding_mode = False
         self.clicking = False
         self.right_clicking = False
@@ -107,9 +106,9 @@ class TowerDefense:
         self.screen_mpos = pygame.mouse.get_pos()
         self.tile_pos = None
         self.debug_mode = False
-        self.fast_forward = False
         self.level_ended = False
         self.dragging_token = None
+        self.time_scale = 0.0
 
         # Here is where we can initialize the scene
         self.towers = pygame.sprite.Group()
@@ -153,113 +152,14 @@ class TowerDefense:
         
     def _init_resolution(self):
         self.screen.blit(pygame.transform.scale(self.display, (1280, 720)), (0, 0))
-
-    def run_pathfinding(self):
-        if self.level_ended:
-            return
- 
-        if self.debug_mode:
-            self.pathfinding.update(True)
-        else:
-            self.pathfinding.update()
-        if not self.pf_started and self.paused:
-            self.paused = False
-            for row in self.pf_grid:
-                for tile in row:
-                    tile.update_neighbors(self.pf_grid)
-            if self.debug_mode:
-                pf_algorithm(lambda: draw_pathfinding(self.display, self.pf_grid, ROWS, WIDTH),
-                                self.pf_grid, self.pf_start, self.pf_end, self, True)
-            else:
-                pf_algorithm(lambda: draw_pathfinding(self.display, self.pf_grid, ROWS, WIDTH),
-                                self.pf_grid, self.pf_start, self.pf_end, self)
-
-    def run_level(self):
-        self.level.update()
-
-    def end_level(self):
-        self.level_ended = True
-        self.app.save_data = complete_level(
-            self.app.save_data,
-            self.app.current_level_key,
-            self.level.unlocks
-        )
-        save_game('data/save.json', self.app.save_data)
-        return 'map'
-
-    def spawn_monsters(self, m_type):
-        monster_n = monster.Monster(self.monster_spawn_pos[0], self.monster_spawn_pos[1], self.pathfinding,
-                                    self.assets['monsters'][m_type], self.monster_data[m_type])
-        self.monsters.add(monster_n)
-        monster_n.find_path()
         
-    def _clamp_tile_pos(self):
-        if self.tile_pos is None:
-            return
-        if self.tile_pos[0] <= 0:
-            self.tile_pos = None
-            return
-        if self.tile_pos[0] >= TILES_WIDE:
-            self.tile_pos = None
-            return
-        if self.tile_pos[1] <= -1:
-            self.tile_pos = None
-            return
-        if self.tile_pos[1] >= TILES_TALL:
-            self.tile_pos = None
-
-    def build_display(self):
-        self.current_build_img.set_alpha(100)
-        if self.tile_pos is not None:
-            if self.current_build_type == 'gem':
-                tower_open = False
-                for n_tower in self.towers:
-                    if self.tile_pos == n_tower.tile_pos and not n_tower.has_gem:
-                        tower_open = True
-                if tower_open:
-                    self.display.blit(self.current_build_img,
-                                        (self.tile_pos[0] * self.tilemap.tile_size * self.render_scale,
-                                        self.tile_pos[1] * self.tilemap.tile_size * self.render_scale))
-                    return
-                else:
-                    return
-            self.display.blit(self.current_build_img,
-                                (self.tile_pos[0] * self.tilemap.tile_size * self.render_scale, self.tile_pos[1] * self.tilemap.tile_size * self.render_scale))
-
-    def build(self):
-        """Creates instance of object for player"""
-        if self.current_build_type == 'tower' and self.current_steel >= self.tower_cost:
-            tower_n = tower.Tower(
-                (self.tile_pos[0] * self.tilemap.tile_size * self.render_scale, self.tile_pos[1] * self.tilemap.tile_size * self.render_scale), self.tile_pos,
-                self.display, self)
-            self.towers.add(tower_n)
-            self.current_steel -= self.tower_cost
-            play_audio('build', self.sfx_assets)
-
-        self.current_build_img = None
-        self.current_build_type = None
-        self.build_mode = False
-        
-    def _enter_tower_build_mode(self):
-        self.current_build_img = self.assets['tower'].copy()
-        self.current_build_type = 'tower'
-        self.build_mode = True
-
-    def _draw_gem(self):
-        if not self.gem_stash.is_full() and self.current_steel >= self.gem_cost:
-            gem_type, tier, star = self.gem_bag.draw()
-            gem_token = GemToken(gem_type, tier, star, self)
-            self.gem_stash.add(gem_token)
-            self.current_steel -= self.gem_cost
-            
     def _init_level(self):
         # here we manage our BGM
         play_audio('BGM_Game_1', self.sfx_assets, True)
         play_audio('BGM_Game_2', self.sfx_assets, True)
         
-        self.create_level_buttons()
+        self._create_level_buttons()
         self._init_resolution()
-        
         
         # Here is where we load all our data that is stored in files
         try:
@@ -293,8 +193,6 @@ class TowerDefense:
                 else:
                     s_tower.has_gem = False
                     
-        self.level.start_wave()
-        self.fast_forward = False
         self.current_wave = 1
         self.pathfinding.update()
         spawn_pos = self.level.monster_spawn_pos
@@ -311,6 +209,109 @@ class TowerDefense:
                         self.pf_grid, self.pf_start, self.pf_end, self)
 
         self.game_ui.create_wave_display(self.level.waves, self.monster_data)
+        
+    def _enter_tower_build_mode(self):
+        self.current_build_img = self.assets['tower'].copy()
+        self.current_build_type = 'tower'
+        self.build_mode = True
+        
+    def _clamp_tile_pos(self):
+        if self.tile_pos is None:
+            return
+        if self.tile_pos[0] <= 0:
+            self.tile_pos = None
+            return
+        if self.tile_pos[0] >= TILES_WIDE:
+            self.tile_pos = None
+            return
+        if self.tile_pos[1] <= -1:
+            self.tile_pos = None
+            return
+        if self.tile_pos[1] >= TILES_TALL:
+            self.tile_pos = None
+            
+    def pause(self):
+        self.time_scale = 0.0
+        
+    def _unpause(self):
+        self.time_scale = 1.0
+        
+    def _toggle_fast_forward(self):
+        self.time_scale = 2.0 if self.time_scale != 2.0 else 1.0
+
+    def _build_display(self):
+        self.current_build_img.set_alpha(100)
+        if self.tile_pos is not None:
+            if self.current_build_type == 'gem':
+                tower_open = False
+                for n_tower in self.towers:
+                    if self.tile_pos == n_tower.tile_pos and not n_tower.has_gem:
+                        tower_open = True
+                if tower_open:
+                    self.display.blit(self.current_build_img,
+                                        (self.tile_pos[0] * self.tilemap.tile_size * self.render_scale,
+                                        self.tile_pos[1] * self.tilemap.tile_size * self.render_scale))
+                    return
+                else:
+                    return
+            self.display.blit(self.current_build_img,
+                                (self.tile_pos[0] * self.tilemap.tile_size * self.render_scale, self.tile_pos[1] * self.tilemap.tile_size * self.render_scale))
+
+    def _build(self):
+        """Creates instance of object for player"""
+        if self.current_build_type == 'tower' and self.current_steel >= self.tower_cost:
+            tower_n = tower.Tower(
+                (self.tile_pos[0] * self.tilemap.tile_size * self.render_scale, self.tile_pos[1] * self.tilemap.tile_size * self.render_scale), self.tile_pos,
+                self.display, self)
+            self.towers.add(tower_n)
+            self.current_steel -= self.tower_cost
+            play_audio('build', self.sfx_assets)
+
+        self.current_build_img = None
+        self.current_build_type = None
+        self.build_mode = False
+
+    def _run_pathfinding(self):
+        if self.level_ended:
+            return
+        if self.debug_mode:
+            self.pathfinding.update(True)
+        else:
+            self.pathfinding.update()
+            
+        if not self.pf_started and self.time_scale == 0.0:
+            self._unpause()
+            self.level.on_start_playing()
+            self.pf_started = True
+            for row in self.pf_grid:
+                for tile in row:
+                    tile.update_neighbors(self.pf_grid)
+            if self.debug_mode:
+                pf_algorithm(lambda: draw_pathfinding(self.display, self.pf_grid, ROWS, WIDTH),
+                                self.pf_grid, self.pf_start, self.pf_end, self, True)
+            else:
+                pf_algorithm(lambda: draw_pathfinding(self.display, self.pf_grid, ROWS, WIDTH),
+                                self.pf_grid, self.pf_start, self.pf_end, self)
+
+    def _run_level(self):
+        self.level.update()
+
+    def _end_level(self):
+        self.level_ended = True
+        self.app.save_data = complete_level(
+            self.app.save_data,
+            self.app.current_level_key,
+            self.level.unlocks
+        )
+        save_game('data/save.json', self.app.save_data)
+        return 'map'
+
+    def _draw_gem(self):
+        if not self.gem_stash.is_full() and self.current_steel >= self.gem_cost:
+            gem_type, tier, star = self.gem_bag.draw()
+            gem_token = GemToken(gem_type, tier, star, self)
+            self.gem_stash.add(gem_token)
+            self.current_steel -= self.gem_cost
             
     def _handle_events(self):
         # This is the event checker for each frame
@@ -320,14 +321,11 @@ class TowerDefense:
                 pygame.quit()
                 sys.exit()
 
-            if self.pf_started:
-                continue
-
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     if self.build_mode:
                         if self.tile_pos is not None:
-                            self.build()
+                            self._build()
                     else:
                         self.game_ui.check_click()
                     
@@ -384,11 +382,17 @@ class TowerDefense:
                 if event.key == pygame.K_p:
                     self.debug_mode = not self.debug_mode
                 if event.key == pygame.K_SPACE:
-                    self.paused = not self.paused
+                    if self.time_scale == 0.0:
+                        if not self.pf_started:
+                            self._run_pathfinding() 
+                        else:
+                            self._unpause()
+                    else:
+                        self.pause()
                 if event.key == pygame.K_ESCAPE:
                     self.build_mode = False
                 if event.key == pygame.K_q:
-                    self.fast_forward = not self.fast_forward
+                    self._toggle_fast_forward()
                     
     def _draw_ui(self):
         self.screen.blit(pygame.transform.scale(self.display, (1280, 720)), (0, 8))
@@ -428,31 +432,27 @@ class TowerDefense:
                             (self.screen_mpos[0] - (self.tile_size / 2), 
                             self.screen_mpos[1] - (self.tile_size / 2)))
         
-        for _tower in self.towers:
-            if self.build_mode:
-                break
-            if _tower.check_hover():
-                _tower.hover(self.screen)
+        if not self.build_mode:
+            for _tower in self.towers:
+                if _tower.check_hover():
+                    _tower.hover(self.screen)
 
-        if not self.paused:
-            if self.fast_forward:
-                self.game_ui.update_wave_display(True)
-            else:
-                self.game_ui.update_wave_display() 
+        if self.time_scale > 0:
+            self.game_ui.update_wave_display(self.dt)
                 
-    def create_level_buttons(self):
+    def _create_level_buttons(self):
         surf_width = self.screen.get_size()[0]
         Button(self.game_ui, 32, 32, (surf_width - 180, 20), 'pause',
            self.ui_assets["pause_button"],
-           on_click=lambda: setattr(self, 'paused', True))
+           on_click=lambda: self._pause())
     
         Button(self.game_ui, 32, 32, (surf_width - 115, 20), 'play',
             self.ui_assets["play_button"],
-            on_click=lambda: self.run_pathfinding())
+            on_click=lambda: self._run_pathfinding())
         
         Button(self.game_ui, 32, 32, (surf_width - 50, 20), 'fast_forward',
             self.ui_assets["fast_forward_button"],
-            on_click=lambda: setattr(self, 'fast_forward', not self.fast_forward))
+            on_click=lambda: self._toggle_fast_forward())
         
         Button(self.game_ui, 64, 64, (surf_width - 180, 300), 'tower_button',
             self.ui_assets["tower_button_small"],
@@ -461,8 +461,16 @@ class TowerDefense:
         Button(self.game_ui, 64, 64, (surf_width - 80, 300), 'gem_button',
             self.ui_assets["gem_button_small"],
             on_click=lambda: self._draw_gem())
+        
+    def spawn_monsters(self, m_type):
+        monster_n = monster.Monster(self.monster_spawn_pos[0], self.monster_spawn_pos[1], self.pathfinding,
+                                    self.assets['monsters'][m_type], self.monster_data[m_type])
+        self.monsters.add(monster_n)
+        monster_n.find_path()
                 
     def _update(self):
+        raw_dt = self.clock.tick(FPS) / 1000
+        self.dt = raw_dt * self.time_scale
         # Here is where we can draw our background
         self.screen.fill(self.bg_color)
         self.display.fill(self.bg_color)
@@ -470,7 +478,6 @@ class TowerDefense:
 
         # here is where we manage the mouse position input
         self.screen_mpos = pygame.mouse.get_pos()
-
         self.mpos = ((self.screen_mpos[0] / self.render_scale), (self.screen_mpos[1] / self.render_scale))
         self.tile_pos = (
         int(self.mpos[0] // self.tilemap.tile_size), int(self.mpos[1] // self.tilemap.tile_size))
@@ -515,15 +522,15 @@ class TowerDefense:
 
         # here is where we handle build mode
         if self.build_mode:
-            self.build_display()
+            self._build_display()
             
-        self.run_level()
+        self._run_level()
 
     def run(self):
         self._init_level()
         while True:
             if self.level.waves_finished and len(self.monsters) == 0:
-                return self.end_level()
+                return self._end_level()
             
             self._update()
             
@@ -532,5 +539,4 @@ class TowerDefense:
             self._draw_ui()           
 
             pygame.display.update()
-            self.dt = self.clock.tick(FPS) / 1000             
                 

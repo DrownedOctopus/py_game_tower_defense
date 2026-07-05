@@ -1,5 +1,4 @@
 import pygame
-import time
 
 from scripts.utils.assets import load_image, load_mask
 from scripts.utils.audio import play_audio
@@ -17,7 +16,7 @@ class Gem (pygame.sprite.Sprite):
         self.tower = tower
         self.tower.gem = self
         self.projectiles = pygame.sprite.Group()
-        self.last_shot = time.time()
+        self.shot_timer = 0.0
         self.shot_delay = stats["shot_delay"]
         self.range = stats["range"] # Was 100
         self.damage = stats["damage"]
@@ -39,19 +38,17 @@ class Gem (pygame.sprite.Sprite):
         self.surf.blit(self.gem_img, self.pos)
 
     def update(self):
-        if self.game.paused:
-            self.last_shot += self.game.dt
-        if len(self.targets) > 0 and not self.game.paused:
+        self.shot_timer += self.game.dt
+        if len(self.targets) > 0:
             current_target = self.targets[0]
             for target in self.targets:
                 if target.pathway_index > current_target.pathway_index:
                     current_target = target
-            delay = self.shot_delay / 2 if self.game.fast_forward else self.shot_delay
-            if (time.time() - self.last_shot) > delay:
+            if self.shot_timer >= self.shot_delay:
                 if current_target in self.game.monsters:
                     self.fire(current_target)
                     self.hit_count += 1
-                    self.last_shot = time.time()
+                    self.shot_timer = 0.0
 
     def on_hover(self):
         range_display_pos = (

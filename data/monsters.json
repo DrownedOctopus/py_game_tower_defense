@@ -1,21 +1,21 @@
 {
     "big": {
         "max_health": 30,
-        "move_speed": 0.02,
+        "move_speed": 1.2,
         "steel_value": 12,
         "hit_cost": 80,
         "image": "monsters_22.png"
     },
     "fast": {
         "max_health": 5,
-        "move_speed": 0.1,
+        "move_speed": 6.0,
         "steel_value": 2,
         "hit_cost": 5,
         "image": "monsters_26.png"
     },
     "normal": {
         "max_health": 10,
-        "move_speed": 0.05,
+        "move_speed": 3.0,
         "steel_value": 8,
         "hit_cost": 10,
         "image": "monsters_20.png"

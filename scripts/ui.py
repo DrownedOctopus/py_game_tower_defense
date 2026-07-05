@@ -3,7 +3,6 @@ from scripts.utils.assets import load_image
 from scripts.utils.ui_utils import build_context_panel
 
 BUTTON_HEIGHT = 80
-TARGET_FPS = 30
 FONT_PARENT = "fonts/Bandwidth8x8.ttf"
 
 
@@ -76,10 +75,9 @@ class UI:
             w_data = wave
             wave_button = Button(self, 32, BUTTON_HEIGHT, (0, int(BUTTON_HEIGHT * count)), ('w', + count), self.assets['wave_button'], self.assets['wave_button_hover'], w_data)
 
-    # BUG: Wave display desyncs with actual wave spawns. Issue likely in main.py
-    def update_wave_display(self, ff=False):
-        speed_modifier = 1 if ff == False else 2
-        movement = (BUTTON_HEIGHT / 14 / TARGET_FPS) * speed_modifier
+    def update_wave_display(self, dt):
+        pixels_per_second = BUTTON_HEIGHT / 14
+        movement = pixels_per_second * dt
         for button in self.buttons:
             if button.name[0] == 'w':
                 button.pos = (button.pos[0], button.pos[1] - movement)
