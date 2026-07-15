@@ -8,7 +8,7 @@ class GemToken:
         self.gem_type = gem_type
         self.tier = tier
         self.star = star
-        self.icon = load_image(gem_type + '_gem.png')
+        self.icon = load_image('gems/' + str(gem_type) + '_' + 'tier_' + str(tier) + '_star_' + str(star) + '.png')
         self.game = game
         self.dragging = False
         # self.game.hoverables.append(self)

@@ -29,7 +29,7 @@ class Gem (pygame.sprite.Sprite):
         self.target_mask_gizmo = load_mask('target_mask_gizmo.png')
         self.valid_target_gizmo = pygame.transform.scale(self.valid_target_gizmo, (self.range * 2, self.range * 2))
         self.target_mask_gizmo = pygame.transform.scale(self.target_mask_gizmo, (self.range * 2, self.range * 2))
-        self.gem_img = load_image(gem_type + '_gem.png')
+        self.gem_img = load_image('gems/' + str(gem_type) + '_' + 'tier_' + str(tier) + '_star_' + str(star) + '.png')
         self.range_mask = pygame.mask.from_surface(self.target_mask_gizmo)
         self.tile_size = self.game.tile_size
         self.targets = []
