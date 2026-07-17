@@ -4,10 +4,11 @@ from scripts.utils.assets import load_image
 from scripts.utils.ui_utils import build_context_panel
 
 class GemToken:
-    def __init__(self, gem_type, tier, star, game):
+    def __init__(self, gem_type, tier, star, range, game):
         self.gem_type = gem_type
         self.tier = tier
         self.star = star
+        self.range = range
         self.icon = load_image('gems/' + str(gem_type) + '_' + 'tier_' + str(tier) + '_star_' + str(star) + '.png')
         self.game = game
         self.dragging = False

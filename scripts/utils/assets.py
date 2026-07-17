@@ -2,7 +2,7 @@ import pygame, os, json
 
 BASE_IMG_PATH = r"art/"
 
-def load_image(path, folder=""):
+def load_image(path):
     img = pygame.image.load(BASE_IMG_PATH + path).convert()
     img.set_colorkey((0, 0, 0))
     return img

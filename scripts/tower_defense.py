@@ -108,6 +108,7 @@ class TowerDefense:
         self.debug_mode = False
         self.level_ended = False
         self.dragging_token = None
+        self.drag_token_range = None
         self.drag_source = None
         self.drag_source_tower = None
         self.time_scale = 0.0
@@ -148,8 +149,9 @@ class TowerDefense:
         
         self.gem_factory = GemFactory(self)
         self.gem_factory.load('data/gems.json')
-        self.gem_bag = GemBag(app.save_data["bags"])
+        self.gem_bag = GemBag(app.save_data["bags"], self.gem_factory.gem_data)
         self.gem_stash = GemStash(self, self.screen, (1135, 400))
+        self.gem_token_range_gizmo = load_image('valid_target_gizmo.png')
         self.hoverables.append(self.gem_stash)
         
     def _init_resolution(self):
@@ -256,8 +258,8 @@ class TowerDefense:
                     return
                 else:
                     return
-            self.display.blit(self.current_build_img,
-                                (self.tile_pos[0] * self.tilemap.tile_size * self.render_scale, self.tile_pos[1] * self.tilemap.tile_size * self.render_scale))
+            hover_pos = (self.tile_pos[0] * self.tilemap.tile_size * self.render_scale, self.tile_pos[1] * self.tilemap.tile_size * self.render_scale)
+            self.display.blit(self.current_build_img, hover_pos)
 
     def _build(self):
         """Creates instance of object for player"""
@@ -310,8 +312,8 @@ class TowerDefense:
 
     def _draw_gem(self):
         if not self.gem_stash.is_full() and self.current_steel >= self.gem_cost:
-            gem_type, tier, star = self.gem_bag.draw()
-            gem_token = GemToken(gem_type, tier, star, self)
+            gem_type, tier, star, stats, abilities = self.gem_bag.draw()
+            gem_token = GemToken(gem_type, tier, star, stats['range'], self)
             self.gem_stash.add(gem_token)
             self.current_steel -= self.gem_cost
             
@@ -350,6 +352,8 @@ class TowerDefense:
                         # check stash first
                         token = self.gem_stash.get_token_at(pygame.mouse.get_pos())
                         if token:
+                            self.drag_token_range = token.range
+                            self.gem_token_range_gizmo = pygame.transform.scale(self.gem_token_range_gizmo, (self.drag_token_range * 2, self.drag_token_range * 2))
                             self.dragging_token = token
                             self.drag_source = 'stash'
                         else:
@@ -496,9 +500,11 @@ class TowerDefense:
         # Here we display our mouse
         self.screen.blit(self.assets['mouse_pointer'], self.screen_mpos)
         if self.dragging_token is not None:
+            hover_pos = (self.screen_mpos[0] - (self.tile_size / 2), 
+                            self.screen_mpos[1] - (self.tile_size / 2))
             self.screen.blit(self.dragging_token.icon, 
-                            (self.screen_mpos[0] - (self.tile_size / 2), 
-                            self.screen_mpos[1] - (self.tile_size / 2)))
+                            hover_pos)
+            self.screen.blit(self.gem_token_range_gizmo, (self.screen_mpos[0] - self.drag_token_range, self.screen_mpos[1] - self.drag_token_range))
         
         if not self.build_mode:
             for _tower in self.towers:
